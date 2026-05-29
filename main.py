@@ -1,116 +1,136 @@
-# import the necessary modules and libraries
-import json, unittest, datetime, os
+# import necessary modules
+import json
+import unittest
+import datetime
+import os
 
-#use the open function to open read the three json files
-SCRIPT_DIR=os.path.dirname(os.path.abspath(__file__))
+# get current script directory
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-dataFile1=os.path.join(SCRIPT_DIR,"data-1.json")
-with open(dataFile1,"r",encoding="utf-8") as f:
-    jsonData1 = json.load(f)
-    
-dataFile2=os.path.join(SCRIPT_DIR,"data-2.json")
-with open(dataFile2,"r",encoding="utf-8") as f:
-    jsonData2 = json.load(f)
-    
-resultData=os.path.join(SCRIPT_DIR,"data-result.json")
-with open(resultData,"r",encoding="utf-8") as f:
-    jsonExpectedResult = json.load(f)
 
-# convert json data from format 1 to the expected format
-def convertFromFormat1 (jsonObject):
+# function to load json files safely
+def load_json(filename):
+    filepath = os.path.join(SCRIPT_DIR, filename)
 
-    # IMPLEMENT: Conversion From Type 1
+    with open(filepath, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+# load json files
+jsonData1 = load_json("data-1.json")
+jsonData2 = load_json("data-2.json")
+jsonExpectedResult = load_json("data-result.json")
+
+
+# convert json data from format 1
+def convertFromFormat1(jsonObject):
+
+    # split location safely
     locationParts = jsonObject["location"].split("/")
-    #create a new dictionary for the unified format
-    result= {
-        'deviceID': jsonObject['deviceID'],
-        'deviceType': jsonObject['deviceType'],
-        'timestamp': jsonObject['timestamp'],
-        'location': {
-            'country': locationParts[0],  #extract the country from the location string
-            'city': locationParts[1],    #extract the city from the location string
-            'area': locationParts[2],   #extract the area from the location string
-            'factory': locationParts[3],    #extract the factory from the location string
-            'section': locationParts[4]  #extract the section from the location string
+
+    # ensure there are exactly 5 parts
+    while len(locationParts) < 5:
+        locationParts.append("")
+
+    result = {
+        "deviceID": jsonObject["deviceID"],
+        "deviceType": jsonObject["deviceType"],
+        "timestamp": jsonObject["timestamp"],
+
+        "location": {
+            "country": locationParts[0],
+            "city": locationParts[1],
+            "area": locationParts[2],
+            "factory": locationParts[3],
+            "section": locationParts[4]
         },
-        'data': {
-            'status': jsonObject['operationStatus'], #copy the operationStatus to status
-            'temperature': jsonObject['temp'] #copy the temp to temperature
+
+        "data": {
+            "status": jsonObject["operationStatus"],
+            "temperature": jsonObject["temp"]
         }
-        
     }
+
     return result
 
-    
 
-# convert json data from format 2 to the expected format
-def convertFromFormat2 (jsonObject):
+# convert json data from format 2
+def convertFromFormat2(jsonObject):
 
-    # IMPLEMENT: Conversion From Type 1
-    # convert the ISO 8601 timestamp to milliseconds since epoch
-    data= datetime.datetime.strptime(jsonObject['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ') #ISO 8601 format
-    timestamp = round((data - datetime.datetime(1970, 1, 1)).total_seconds() * 1000) #convert to milliseconds since epoch
+    # safer ISO timestamp conversion
+    data = datetime.datetime.fromisoformat(
+        jsonObject["timestamp"].replace("Z", "+00:00")
+    )
 
-    #create a new dictionary for the unified format
-    result={
-        'deviceID': jsonObject['device']['id'],  #extract the device ID
-        'deviceType': jsonObject['device']['type'], #extract the device type
-        'timestamp': timestamp, #use the converted timestamp
-        'location': {
-            'country': jsonObject['country'], #copy the country
-            'city': jsonObject['city'], #copy the city
-            'area': jsonObject['area'], #copy the area
-            'factory': jsonObject['factory'], #copy the factory
-            'section': jsonObject['section'] #copy the section
+    timestamp = round(
+        (data - datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc))
+        .total_seconds() * 1000
+    )
+
+    result = {
+        "deviceID": jsonObject["device"]["id"],
+        "deviceType": jsonObject["device"]["type"],
+        "timestamp": timestamp,
+
+        "location": {
+            "country": jsonObject["country"],
+            "city": jsonObject["city"],
+            "area": jsonObject["area"],
+            "factory": jsonObject["factory"],
+            "section": jsonObject["section"]
         },
-        'data': jsonObject['data'] #copy the entire data object
+
+        "data": jsonObject["data"]
     }
+
     return result
 
 
-def main (jsonObject):
+# main conversion function
+def main(jsonObject):
 
-    result = {}
-
-    if (jsonObject.get('device') == None):
-        result = convertFromFormat1(jsonObject)
+    if jsonObject.get("device") is None:
+        return convertFromFormat1(jsonObject)
     else:
-        result = convertFromFormat2(jsonObject)
-
-    return result
+        return convertFromFormat2(jsonObject)
 
 
-# Test cases using unittest module
+# unit tests
 class TestSolution(unittest.TestCase):
 
-    # Sanity test to ensure the expected result is as intended
-    # converts json data to python objects usnig json.loads and json.dumps
+    # sanity test
     def test_sanity(self):
 
         result = json.loads(json.dumps(jsonExpectedResult))
+
         self.assertEqual(
             result,
             jsonExpectedResult
         )
 
+    # test format 1
     def test_dataType1(self):
 
-        result = main (jsonData1)
+        result = main(jsonData1)
+
         self.assertEqual(
             result,
             jsonExpectedResult,
-            'Converting from Type 1 failed'
+            "Converting from Type 1 failed"
         )
 
+    # test format 2
     def test_dataType2(self):
 
-        result = main (jsonData2)
+        result = main(jsonData2)
+
         self.assertEqual(
             result,
             jsonExpectedResult,
-            'Converting from Type 2 failed'
+            "Converting from Type 2 failed"
         )
 
-if __name__ == '__main__':
-    # run the tests
+
+# run tests
+if __name__ == "__main__":
     unittest.main()
